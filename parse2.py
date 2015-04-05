@@ -1,7 +1,7 @@
 
 
 import gzip
-import simplejson
+import json
 import ast
 import nltk
 import collections 
@@ -31,7 +31,7 @@ def CountWords(filename,SortDict=False):
   for DataSetReview in parse(filename):
     ReviewCount +=  1
     try:
-      CategorizedReview = ast.literal_eval(simplejson.dumps(DataSetReview))
+      CategorizedReview = ast.literal_eval(json.dumps(DataSetReview))
       #get review text
       TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
       TokensAppeared = set([])
@@ -53,7 +53,7 @@ def CountWords(filename,SortDict=False):
   print 'Tokens analysed:', len(WordCountDict), 'most common token:', MostCommonName
 
   with open("CleanerAttributes.txt", "w") as DestFile:
-    ReviewCountInfo = str(ReviewCount) + '\n'
+    ReviewCountInfo = str(ReviewCount).replace(',',';') + '\n'
 
   with open("CleanerAttributes.txt", "a") as DestFile:
 
@@ -68,7 +68,6 @@ def CountWords(filename,SortDict=False):
 
 def SelectTokens(BottomTreshold,UpperTreshold,wordCountResults = 'CleanerAttributes.txt'):
   
-
   #if Word Count dictionary isn't currently loaded, get it from file
   if isinstance(wordCountResults, basestring):
     with open("SelectedTokens.txt", "r") as SrceFile:
@@ -104,15 +103,20 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
   
   #if list of selected token isn't currently loaded, get it from file
   if isinstance(SelectedTokens, basestring):
-    with open("SelectedTokens.txt", "w") as SrceFile:
+    with open("SelectedTokens.txt", "r") as SrceFile:
       SelectedTokens = ast.literal_eval(SrceFile.read())
   else:
     pass
 
-  #Clean old contents of dataset file
-  open('matrixJewelry.txt', 'w').close()
+  MetaHeaderList = ['METAprice','METAtime','METAproductId','METAuserId','METAscore']
+  HeaderList = str(MetaHeaderList + SelectedTokens)[1:-1]
+  ClearedHeaderList = HeaderList.replace('"','').replace("'","").replace(',',';').replace(' ','')
 
-  SelectedTokensDict ={}
+
+  #Clean old contents of dataset file
+  with open('matrixJewelry.txt', 'w') as matrix:
+    matrix.write(ClearedHeaderList + '\n')
+  SelectedTokensDict = {}
   for Token in SelectedTokens:
     SelectedTokensDict[Token] = 0
   
@@ -122,23 +126,24 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
       try:
         ReviewCount +=  1
 
-        CategorizedReview = ast.literal_eval(simplejson.dumps(DataSetReview))
+        CategorizedReview = ast.literal_eval(json.dumps(DataSetReview))
         #get review text
         TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
         for Token in TokenizedReviewText:
           if Token in SelectedTokensDict:
             SelectedTokensDict[Token] = 1
 
-        MetaData = (str(CategorizedReview["product/price"]) + ', ' +
-                    str(CategorizedReview["review/time"]) + ', ' +
-                    str(CategorizedReview["product/productId"]) +
-                    str(CategorizedReview["review/helpfulness"]) + ', '+
-                    str(CategorizedReview["review/summary"]) + ', '+
-                    str(CategorizedReview["review/userId"]) + ', '+
-                    str(CategorizedReview["review/score"]) + ', ')
-        DatasetRow = MetaData + str(SelectedTokensDict.values())[1:-1] + '\n'
-     
-        matrix.write(DatasetRow)
+        MetaData = (str(CategorizedReview["product/price"]) + '; ' +
+                    str(CategorizedReview["review/time"]) + '; ' +
+                    str(CategorizedReview["product/productId"]) + '; ' +
+                    #str(CategorizedReview["review/helpfulness"]) + '; '+
+                    #str(CategorizedReview["review/summary"]) + '; '+
+                    str(CategorizedReview["review/userId"]) + '; '+
+                    str(CategorizedReview["review/score"]) + '; ')
+        TokensCoding = str(SelectedTokensDict.values())[1:-1]
+        DatasetRow = MetaData + TokensCoding.replace(',',';') + '\n'
+        DatasetRowWithoutSpaces = DatasetRow.replace(' ','')
+        matrix.write(DatasetRowWithoutSpaces)
       except:
         print DataSetReview
 
