@@ -29,7 +29,7 @@ def CountWords(filename,SortDict=False):
   ReviewCount = 0
   WordCountDict = collections.defaultdict(int)
   for DataSetReview in parse(filename):
-    ReviewCount = ReviewCount +  1
+    ReviewCount +=  1
     try:
       CategorizedReview = ast.literal_eval(simplejson.dumps(DataSetReview))
       #get review text
@@ -51,22 +51,38 @@ def CountWords(filename,SortDict=False):
 
   MostCommonName = max(WordCountDict, key=WordCountDict.get)    
   print 'Tokens analysed:', len(WordCountDict), 'most common token:', MostCommonName
-  
+
   with open("CleanerAttributes.txt", "w") as DestFile:
+    ReviewCountInfo = str(ReviewCount) + '\n'
+
+  with open("CleanerAttributes.txt", "a") as DestFile:
+
     if SortDict:
-      DestFile.write(SortedDictStr)
+      SortedDictStrToFile = '{' + SortedDictStr[:-1] + '}'
+      DestFile.write(SortedDictStrToFile)
     else:
-      DestFile.write(str(WordCountDict))
+      WordCountDictToFile = '{' + str(WordCountDict)[:-1] + '}'
+      DestFile.write(WordCountDictToFile)
 
   return WordCountDict, ReviewCount
 
-def SelectTokens(wordCountResults,BottomTreshold,UpperTreshold):
-  # if not WordCountDict:
-  #   Attributes = open(filename).read()
-  #   DictString = '{' + Attributes[:-1] + '}'
-  #   WordCountDict = ast.literal_eval(DictString)
-  WordCountDict = wordCountResults[0]
-  ReviewCount = wordCountResults[1]
+def SelectTokens(BottomTreshold,UpperTreshold,wordCountResults = 'CleanerAttributes.txt'):
+  
+
+  #if Word Count dictionary isn't currently loaded, get it from file
+  if isinstance(wordCountResults, basestring):
+    with open("SelectedTokens.txt", "r") as SrceFile:
+      LineCount = 0
+      for line in SrceFile:
+        if LineCount == 0:
+          ReviewCount = line
+        else:
+          SelectedTokens = ast.literal_eval(SrceFile.read())
+        LineCount += 1
+  else:
+    WordCountDict = wordCountResults[0]
+    ReviewCount = wordCountResults[1]
+
   print 'Reviews number:', ReviewCount
   SelectedTokens = []
   for Token in WordCountDict:
@@ -83,86 +99,53 @@ def SelectTokens(wordCountResults,BottomTreshold,UpperTreshold):
 
   return SelectedTokens
 
-def CreateDataSet(filename,SelectedTokens,TokensList):
+def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
+  print '-----Creating Data Set-----'
   
+  #if list of selected token isn't currently loaded, get it from file
+  if isinstance(SelectedTokens, basestring):
+    with open("SelectedTokens.txt", "w") as SrceFile:
+      SelectedTokens = ast.literal_eval(SrceFile.read())
+  else:
+    pass
 
+  #Clean old contents of dataset file
+  open('matrixJewelry.txt', 'w').close()
+
+  SelectedTokensDict ={}
+  for Token in SelectedTokens:
+    SelectedTokensDict[Token] = 0
+  
   ReviewCount = 0
-  WordCountDict = collections.defaultdict(int)
-  for DataSetReview in parse(filename):
-    ReviewCount = ReviewCount +  1
-    try:
-      CategorizedReview = ast.literal_eval(simplejson.dumps(DataSetReview))
-      #get review text
-      TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
-      for Token in TokenizedReviewText:
-        if Token in atributes:
-          atributes[word] = 1
-        else:
-          pass
-      MetaData = (str(dataset["product/price"]) + ', ' +
-                  str(dataset["review/time"]) + ', ' +
-                  str(dataset["product/productId"]) +
-                  str(dataset["review/helpfulness"]) + ', '+
-                  str(dataset["review/summary"]) + ', '+
-                  str(dataset["review/userId"]) + ', '+
-                  str(dataset["review/score"]) + ', ')
-      DatasetRow = MetaData + str(atributes.values())[1:-1] + '\n'
-    except:
-      print 'Error on ', Token
+  with open("matrixJewelry.txt", "a") as matrix:
+    for DataSetReview in parse(filename):
+      try:
+        ReviewCount +=  1
 
+        CategorizedReview = ast.literal_eval(simplejson.dumps(DataSetReview))
+        #get review text
+        TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
+        for Token in TokenizedReviewText:
+          if Token in SelectedTokensDict:
+            SelectedTokensDict[Token] = 1
 
-      #print DatasetRow    
-      with open("matrixJewelry.txt", "a") as matrix:
+        MetaData = (str(CategorizedReview["product/price"]) + ', ' +
+                    str(CategorizedReview["review/time"]) + ', ' +
+                    str(CategorizedReview["product/productId"]) +
+                    str(CategorizedReview["review/helpfulness"]) + ', '+
+                    str(CategorizedReview["review/summary"]) + ', '+
+                    str(CategorizedReview["review/userId"]) + ', '+
+                    str(CategorizedReview["review/score"]) + ', ')
+        DatasetRow = MetaData + str(SelectedTokensDict.values())[1:-1] + '\n'
+     
         matrix.write(DatasetRow)
-      atributes = collections.OrderedDict.fromkeys(dictkeys, 0)
-    except:
-      print(dataset)
-      pass
+      except:
+        print DataSetReview
 
-WordCountsDict = CountWords("Jewelry.txt.gz")
-print type(WordCountsDict)
-SelectTokens(WordCountsDict,1,60)
+      SelectedTokensDict = dict.fromkeys(SelectedTokensDict, 0)
 
-#a = open("E:/python/DICTtest.txt").read()
-#dictkeys = ast.literal_eval(a)
-#dictkeys = dictkeys[:5000]
-#atributes = collections.OrderedDict.fromkeys(dictkeys, 0)
-#
-#
-#  
-#dataset = {}
-#TextToWrite = []
-#
-#var = 0
-#
-#
-#for e in parse("C:\Users\T530\Desktop\Jewelry.txt.gz"):
-#  var = var + 1
-#  try:
-#    dataset = ast.literal_eval(simplejson.dumps(e))
-#    tokens = nltk.word_tokenize(dataset['review/text'])
-#    for word in tokens:
-#      if word in atributes:
-#        atributes[word] = 1
-#      else:
-#        pass
-#    if var > 100000:
-#      break
-#    MetaData = (str(dataset["product/price"]) + ', ' +
-#                str(dataset["review/time"]) + ', ' +
-#                str(dataset["product/productId"]) +
-#                str(dataset["review/helpfulness"]) + ', '+
-#                str(dataset["review/summary"]) + ', '+
-#                str(dataset["review/userId"]) + ', '+
-#                str(dataset["review/score"]) + ', ')
-#    DatasetRow = MetaData + str(atributes.values())[1:-1] + '\n'
-#
-#    #print DatasetRow    
-#    with open("matrixJewelry.txt", "a") as matrix:
-#      matrix.write(DatasetRow)
-#
-#    atributes = collections.OrderedDict.fromkeys(dictkeys, 0)
-#  except:
-#    print(dataset)
-#    pass
-#
+filename = "Jewelry.txt.gz"
+CountWordsResults = CountWords(filename)
+SelectTokensResults = SelectTokens(1,60,CountWordsResults)
+CreateDataSet(filename,SelectTokensResults)
+
