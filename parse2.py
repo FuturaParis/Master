@@ -21,7 +21,7 @@ def parse(filename):
     entry[eName] = rest
   yield entry
 
-def CountWords(filename,SortDict=False):
+def CountWords(filename,SortDict=False,NGramNum=1):
   '''
   Function counts frequency for each token existing in review.
   Token present multiple times in one review is counted as one.
@@ -34,8 +34,9 @@ def CountWords(filename,SortDict=False):
       CategorizedReview = ast.literal_eval(json.dumps(DataSetReview))
       #get review text
       TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
+      TokenizedReviewTextLC = [token.lower() for token in TokenizedReviewText]
       TokensAppeared = set([])
-      for Token in TokenizedReviewText:
+      for Token in nltk.ngrams(TokenizedReviewTextLC, NGramNum):
         if Token not in TokensAppeared:
           WordCountDict[Token] += 1
           TokensAppeared.add(Token)
@@ -47,10 +48,12 @@ def CountWords(filename,SortDict=False):
     print 'Sorting Dictionary'
     SortedDictStr = ''
     for Token in sorted(WordCountDict, key=WordCountDict.get, reverse=True):
-      SortedDictStr = SortedDictStr + "'" + Token + "': " + str(WordCountDict[Token]) + ", "
+      SortedDictStr = SortedDictStr + "'" + str(Token) + "': " + str(WordCountDict[Token]) + ", "
 
   MostCommonName = max(WordCountDict, key=WordCountDict.get)    
   print 'Tokens analysed:', len(WordCountDict), 'most common token:', MostCommonName
+
+  ResultFileName = "CleanerAttributesNGram" + str(NGramNum) + ".txt" 
 
   with open("CleanerAttributes.txt", "w") as DestFile:
     ReviewCountInfo = str(ReviewCount).replace(',',';') + '\n'
@@ -76,7 +79,7 @@ def SelectTokens(BottomTreshold,UpperTreshold,wordCountResults = 'CleanerAttribu
         if LineCount == 0:
           ReviewCount = line
         else:
-          SelectedTokens = ast.literal_eval(SrceFile.read())
+          WordCountDict = ast.literal_eval(SrceFile.read())
         LineCount += 1
   else:
     WordCountDict = wordCountResults[0]
@@ -107,7 +110,6 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
       SelectedTokens = ast.literal_eval(SrceFile.read())
   else:
     pass
-
   MetaHeaderList = ['METAprice','METAtime','METAproductId','METAuserId','METAscore']
   HeaderList = str(MetaHeaderList + SelectedTokens)[1:-1]
   ClearedHeaderList = HeaderList.replace('"','').replace("'","").replace(',',';').replace(' ','')
@@ -116,6 +118,9 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
   #Clean old contents of dataset file
   with open('matrixJewelry.txt', 'w') as matrix:
     matrix.write(ClearedHeaderList + '\n')
+  x1, y1 = zip(*SelectedTokens)
+  print x1
+  print y1
   SelectedTokensDict = {}
   for Token in SelectedTokens:
     SelectedTokensDict[Token] = 0
@@ -129,7 +134,9 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
         CategorizedReview = ast.literal_eval(json.dumps(DataSetReview))
         #get review text
         TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
-        for Token in TokenizedReviewText:
+        TokenizedReviewTextLC = [token.lower() for token in TokenizedReviewText]
+
+        for Token in TokenizedReviewTextLC:
           if Token in SelectedTokensDict:
             SelectedTokensDict[Token] = 1
 
@@ -150,7 +157,7 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
       SelectedTokensDict = dict.fromkeys(SelectedTokensDict, 0)
 
 filename = "Jewelry.txt.gz"
-CountWordsResults = CountWords(filename)
-SelectTokensResults = SelectTokens(1,60,CountWordsResults)
+CountWordsResults = CountWords(filename,False,NGramNum = 1)
+SelectTokensResults = SelectTokens(1,50,CountWordsResults)
 CreateDataSet(filename,SelectTokensResults)
 
