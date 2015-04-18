@@ -1,10 +1,42 @@
-
-
 import gzip
 import json
 import ast
 import nltk
 import collections 
+
+def ngrams(sequence, n, lower=True):
+    """
+    Return the ngrams generated from a sequence of items, as an iterator.
+    For example:
+
+        >>> from nltk.util import ngrams
+        >>> list(ngrams([1,2,3,4,5], 3))
+        [(1, 2, 3), (2, 3, 4), (3, 4, 5)]
+
+    :param sequence: the source data to be converted into ngrams
+    :type sequence: sequence or iter
+    :param n: the degree of the ngrams
+    :type n: int
+    :type pad_symbol: any
+    :rtype: iter(tuple)
+    :param lower: convert to lovwercase
+    :type param: bool
+    """
+    if lower:
+      sequence = [str(token).lower() for token in sequence]
+
+    PunctMarks = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
+    sequence = iter(sequence)
+
+    history = []
+    while n > 1:
+        history.append(next(sequence))
+        n -= 1
+    for item in sequence:
+        history.append(item.translate(None, PunctMarks))
+        yield tuple(history)
+        del history[0]
+
 
 def parse(filename):
   f = gzip.open(filename, 'r')
@@ -34,9 +66,8 @@ def CountWords(filename,SortDict=False,NGramNum=1):
       CategorizedReview = ast.literal_eval(json.dumps(DataSetReview))
       #get review text
       TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
-      TokenizedReviewTextLC = [token.lower() for token in TokenizedReviewText]
       TokensAppeared = set([])
-      for Token in nltk.ngrams(TokenizedReviewTextLC, NGramNum):
+      for Token in ngrams(TokenizedReviewText, NGramNum):
         if Token not in TokensAppeared:
           WordCountDict[Token] += 1
           TokensAppeared.add(Token)
@@ -101,7 +132,7 @@ def SelectTokens(BottomTreshold,UpperTreshold,wordCountResults = 'CleanerAttribu
 
   return SelectedTokens
 
-def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
+def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt',NGramNum=1):
   print '-----Creating Data Set-----'
   
   #if list of selected token isn't currently loaded, get it from file
@@ -110,17 +141,16 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
       SelectedTokens = ast.literal_eval(SrceFile.read())
   else:
     pass
-  MetaHeaderList = ['METAprice','METAtime','METAproductId','METAuserId','METAscore']
-  HeaderList = str(MetaHeaderList + SelectedTokens)[1:-1]
-  ClearedHeaderList = HeaderList.replace('"','').replace("'","").replace(',',';').replace(' ','')
+  MetaHeaderList = "'METAprice';'METAtime';'METAproductId';'METAuserId';'METAscore';"
+  SelectedTokensStr = str(SelectedTokens)[1:-1]
+  HeaderList = MetaHeaderList + SelectedTokensStr
+  ClearedHeaderList = HeaderList.replace("'","").replace('),',');').replace(',(',';(')
 
-
+  print ClearedHeaderList
   #Clean old contents of dataset file
   with open('matrixJewelry.txt', 'w') as matrix:
     matrix.write(ClearedHeaderList + '\n')
-  x1, y1 = zip(*SelectedTokens)
-  print x1
-  print y1
+
   SelectedTokensDict = {}
   for Token in SelectedTokens:
     SelectedTokensDict[Token] = 0
@@ -130,16 +160,16 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
     for DataSetReview in parse(filename):
       try:
         ReviewCount +=  1
-
+  
         CategorizedReview = ast.literal_eval(json.dumps(DataSetReview))
+  
         #get review text
         TokenizedReviewText = nltk.word_tokenize(CategorizedReview['review/text'])
-        TokenizedReviewTextLC = [token.lower() for token in TokenizedReviewText]
-
-        for Token in TokenizedReviewTextLC:
+  
+        for Token in ngrams(TokenizedReviewText, NGramNum):
           if Token in SelectedTokensDict:
             SelectedTokensDict[Token] = 1
-
+  
         MetaData = (str(CategorizedReview["product/price"]) + '; ' +
                     str(CategorizedReview["review/time"]) + '; ' +
                     str(CategorizedReview["product/productId"]) + '; ' +
@@ -157,7 +187,7 @@ def CreateDataSet(filename,SelectedTokens = 'SelectedTokens.txt'):
       SelectedTokensDict = dict.fromkeys(SelectedTokensDict, 0)
 
 filename = "Jewelry.txt.gz"
-CountWordsResults = CountWords(filename,False,NGramNum = 1)
+CountWordsResults = CountWords(filename,True,NGramNum = 2)
 SelectTokensResults = SelectTokens(1,50,CountWordsResults)
-CreateDataSet(filename,SelectTokensResults)
+CreateDataSet(filename,SelectTokensResults,NGramNum = 2)
 
